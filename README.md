@@ -1,6 +1,6 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/dmhendricks/jquery-waituntilexists.svg)](https://packagist.org/packages/dmhendricks/jquery-waituntilexists)
 
-# jquery.waituntilexists.js
+# jquery.waitUntilExists.js
 
 jQuery plugin that runs handler function once specified element is inserted into the DOM.
 
@@ -15,4 +15,5 @@ bower install jq.waituntilexists --save
 ```
 $( '#selector' ).waitUntilExists( function() {
 	// Do some magic
+  console.log( this.id );
 });
