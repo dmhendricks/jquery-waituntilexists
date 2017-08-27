@@ -1,3 +1,5 @@
+[![Total Downloads](https://img.shields.io/packagist/dt/dmhendricks/jquery-waituntilexists.svg)](https://packagist.org/packages/dmhendricks/jquery-waituntilexists)
+
 # jquery.waituntilexists.js
 
 jQuery plugin that runs handler function once specified element is inserted into the DOM.
