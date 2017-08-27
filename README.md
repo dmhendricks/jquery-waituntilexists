@@ -4,10 +4,18 @@
 
 jQuery plugin that runs handler function once specified element is inserted into the DOM.
 
-Forked from: [https://gist.github.com/PizzaBrandon/5709010](https://gist.github.com/PizzaBrandon/5709010)
+Borrowed from: [https://gist.github.com/PizzaBrandon/5709010](https://gist.github.com/PizzaBrandon/5709010)
+
+### Bower
 
 ```
 bower install jq.waituntilexists --save
+```
+
+### Composer
+
+```
+composer require dmhendricks/jquery-waituntilexists
 ```
 
 ## Usage
