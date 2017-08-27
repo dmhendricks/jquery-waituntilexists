@@ -14,6 +14,6 @@ bower install jq.waituntilexists --save
 
 ```
 $( '#selector' ).waitUntilExists( function() {
-	// Do some magic
+  // Do some magic
   console.log( this.id );
 });
