@@ -1,7 +1,6 @@
 {
   "name": "dmhendricks/jquery-waituntilexists",
   "description": "jQuery plugin that runs handler function once specified element is inserted into the DOM.",
-  "version": "0.1.0",
   "keywords": [ "javascript", "jquery", "wait", "dom" ],
   "homepage": "https://github.com/dmhendricks/jquery-waituntilexists",
   "repository": {
