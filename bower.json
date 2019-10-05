@@ -1,10 +1,11 @@
 {
   "name": "jq.waituntilexists",
   "description": "jQuery plugin that runs handler function once specified element is inserted into the DOM.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "main": "jquery.waituntilexists.js",
   "keywords": [
     "javascript",
+    "waituntilexists",
     "jquery",
     "wait",
     "dom"
