@@ -2,6 +2,7 @@
  * jQuery plugin that runs handler function once specified element is inserted into the DOM.
  *
  * @version 1.0.0
+ * @license MIT
  * @author Brandon Belvin {@link https://gist.github.com/PizzaBrandon/5709010|PizzaBrandon}
  * @see {@link https://github.com/dmhendricks/jquery-waituntilexists|GitHub}
  */
