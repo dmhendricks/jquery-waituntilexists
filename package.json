@@ -1,0 +1,22 @@
+{
+  "name": "@dmhendricks/jquery-waituntilexists",
+  "description": "jQuery plugin that runs handler function once specified element is inserted into the DOM.",
+  "author": "Daniel M. Hendricks",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "jquery.waitUntilExists.min.js",
+  "keywords": [
+    "jquery",
+    "element",
+    "exists",
+    "listener"
+  ],
+  "homepage": "https://github.com/dmhendricks/jquery-waituntilexists",
+  "contributors": [
+    "Brandon Belvin (https://github.com/PizzaBrandon)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dmhendricks/jquery-waituntilexists.git"
+  }
+}
