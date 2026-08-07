@@ -1,10 +1,15 @@
-__MACOSX
-*.DS_Store*
-ehthumbs.db
-Icon?
-Thumbs.db
-.npmrc
-._*
-*.un~
+node_modules
 *.log
+.npmrc
+docs/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.bak
+*.bak.*
+
+# Workspace
 *.code-workspace

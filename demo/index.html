@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>waitUntilExists — demo harness</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #1c2024;
+    --muted: #5f6b76;
+    --line: #dfe3e8;
+    --ok: #1a7f4b;
+    --ok-bg: #e7f6ed;
+    --bad: #b42318;
+    --bad-bg: #fdecea;
+    --warn: #8a5a00;
+    --warn-bg: #fff6e5;
+    --accent: #0b62d0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --panel: #1c2024; --ink: #e6e9ec; --muted: #9aa5b1;
+      --line: #2c333a; --ok: #4ade80; --ok-bg: #10281c; --bad: #f87171;
+      --bad-bg: #2a1413; --warn: #fbbf24; --warn-bg: #2a2110; --accent: #60a5fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px; margin-bottom: 16px;
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 12px;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  label { font-size: 13px; color: var(--muted); }
+  select, button {
+    font: inherit; padding: 7px 12px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.1); }
+  .verdict { padding: 12px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+  .verdict.ok   { background: var(--ok-bg);   color: var(--ok);   border: 1px solid currentColor; }
+  .verdict.bad  { background: var(--bad-bg);  color: var(--bad);  border: 1px solid currentColor; }
+  .verdict.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor; }
+  .verdict.idle { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  td.v { font-family: var(--mono); font-size: 12px; }
+  .pill {
+    display: inline-block; padding: 1px 8px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; font-family: var(--mono);
+  }
+  .pill.ok  { background: var(--ok-bg);  color: var(--ok); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  #log {
+    font-family: var(--mono); font-size: 12px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+    height: 220px; overflow-y: auto; white-space: pre-wrap; margin: 0;
+  }
+  #log .t { color: var(--muted); }
+  #log .e { color: var(--bad); }
+  #log .s { color: var(--ok); }
+  #stage {
+    min-height: 60px; border: 1px dashed var(--line); border-radius: 8px;
+    padding: 12px; background: var(--bg);
+  }
+  #stage:empty::after {
+    content: "empty — injected elements appear here";
+    color: var(--muted); font-size: 12px; font-style: italic;
+  }
+  .target {
+    display: inline-block; padding: 6px 12px; margin: 4px 4px 0 0;
+    background: var(--ok-bg); color: var(--ok);
+    border: 1px solid currentColor; border-radius: 6px;
+    font-family: var(--mono); font-size: 12px;
+  }
+  code {
+    font-family: var(--mono); font-size: .9em;
+    background: var(--bg); padding: 1px 5px; border-radius: 4px;
+  }
+  .note { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>waitUntilExists — demo harness</h1>
+  <div class="sub">
+    Local test page (gitignored). Proves the v1 <code>this.selector</code> breakage and,
+    later, validates the v2 rewrite.
+  </div>
+
+  <div class="panel">
+    <h2>Environment</h2>
+    <div class="controls">
+      <label for="jqv">jQuery version</label>
+      <select id="jqv">
+        <option value="1.12.4">1.12.4 — last 1.x</option>
+        <option value="2.2.4">2.2.4 — last 2.x</option>
+        <option value="3.0.0">3.0.0 — selector removed here</option>
+        <option value="3.5.1">3.5.1</option>
+        <option value="3.7.1" selected>3.7.1 — last 3.x</option>
+        <option value="4.0.0">4.0.0 — current</option>
+      </select>
+      <label for="impl">Implementation</label>
+      <select id="impl">
+        <option value="v1" selected>v1 — current (setInterval)</option>
+        <option value="v2">v2 — rewrite (MutationObserver)</option>
+      </select>
+      <button id="reload" class="primary">Reload</button>
+    </div>
+    <div class="note">
+      Version and implementation are read from the URL hash, so reloading preserves them.
+    </div>
+  </div>
+
+  <div id="verdict" class="verdict idle">Loading…</div>
+
+  <div class="panel">
+    <h2>Diagnostics</h2>
+    <table>
+      <thead>
+        <tr><th>Check</th><th>Value</th><th>Status</th></tr>
+      </thead>
+      <tbody id="diag"></tbody>
+    </table>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <h2>Test — element appears after a delay</h2>
+      <div class="controls" style="margin-bottom:12px">
+        <button id="watch">1. Start watching <code>#late</code></button>
+        <button id="inject" disabled>2. Inject after 1.5s</button>
+        <button id="reset">Reset</button>
+      </div>
+      <div id="stage"></div>
+      <div class="note">
+        The real test: start watching <em>before</em> the element exists. This is the case
+        v1 cannot handle on jQuery 3+, because <code>$('#late')</code> is empty and
+        <code>this.selector</code> no longer exists.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Log</h2>
+      <pre id="log"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Harness bootstrap. Reads config from the hash, loads jQuery + the chosen
+// implementation synchronously via document.write so ordering is guaranteed.
+// ---------------------------------------------------------------------------
+(function () {
+  var cfg = { jq: '3.7.1', impl: 'v1' };
+  var hash = location.hash.replace(/^#/, '');
+  if (hash) {
+    hash.split('&').forEach(function (kv) {
+      var p = kv.split('=');
+      if (p[0] === 'jq' && p[1]) cfg.jq = decodeURIComponent(p[1]);
+      if (p[0] === 'impl' && p[1]) cfg.impl = decodeURIComponent(p[1]);
+    });
+  }
+  window.__CFG__ = cfg;
+
+  document.write(
+    '<script src="https://code.jquery.com/jquery-' + cfg.jq + '.min.js"><\/script>'
+  );
+  if (cfg.impl === 'v1') {
+    document.write('<script src="../jquery.waitUntilExists.js"><\/script>');
+  } else {
+    // Phase 3+ will emit this. Absent for now — handled gracefully below.
+    document.write('<script src="../dist/jquery.waitUntilExists.umd.js"><\/script>');
+  }
+})();
+</script>
+
+<script>
+// ---------------------------------------------------------------------------
+// Demo logic. Deliberately written in plain DOM APIs, not jQuery, so the
+// harness itself keeps working even when the plugin under test is broken.
+// ---------------------------------------------------------------------------
+(function () {
+  var cfg = window.__CFG__;
+  var $log = document.getElementById('log');
+  var $diag = document.getElementById('diag');
+  var $verdict = document.getElementById('verdict');
+  var $stage = document.getElementById('stage');
+  var timer = null;
+  var fired = false;
+
+  function log(msg, cls) {
+    var t = new Date().toISOString().substr(11, 12);
+    var line = document.createElement('div');
+    line.innerHTML = '<span class="t">' + t + '</span>  ' +
+      '<span class="' + (cls || '') + '">' + msg + '</span>';
+    $log.appendChild(line);
+    $log.scrollTop = $log.scrollHeight;
+  }
+
+  function row(label, value, ok) {
+    var tr = document.createElement('tr');
+    var status = ok === null
+      ? '<span class="pill">n/a</span>'
+      : '<span class="pill ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'OK' : 'FAIL') + '</span>';
+    tr.innerHTML = '<td>' + label + '</td><td class="v">' + value + '</td><td>' + status + '</td>';
+    $diag.appendChild(tr);
+  }
+
+  function verdict(msg, cls) {
+    $verdict.className = 'verdict ' + cls;
+    $verdict.innerHTML = msg;
+  }
+
+  // --- sync UI to config -------------------------------------------------
+  document.getElementById('jqv').value = cfg.jq;
+  document.getElementById('impl').value = cfg.impl;
+
+  function apply() {
+    location.hash = 'jq=' + encodeURIComponent(document.getElementById('jqv').value) +
+                    '&impl=' + encodeURIComponent(document.getElementById('impl').value);
+    location.reload();
+  }
+  document.getElementById('reload').addEventListener('click', apply);
+  document.getElementById('jqv').addEventListener('change', apply);
+  document.getElementById('impl').addEventListener('change', apply);
+
+  // --- diagnostics -------------------------------------------------------
+  var jq = window.jQuery;
+  var hasJq = typeof jq === 'function';
+  row('jQuery loaded', hasJq ? 'yes' : 'NO', hasJq);
+
+  if (!hasJq) {
+    verdict('<strong>jQuery failed to load.</strong> Check the version and your network.', 'bad');
+    log('jQuery did not load from CDN', 'e');
+    return;
+  }
+
+  var ver = jq.fn.jquery;
+  var major = parseInt(ver, 10);
+  row('jQuery version', ver, null);
+
+  // Does this jQuery still expose .selector? Removed in 3.0.
+  var probe = jq('#nonexistent-probe-' + Date.now());
+  var hasSelector = typeof probe.selector === 'string';
+  row('<code>.selector</code> property', hasSelector ? '"' + probe.selector + '"' : 'undefined', hasSelector);
+
+  var pluginLoaded = typeof jq.fn.waitUntilExists === 'function';
+  row('plugin <code>$.fn.waitUntilExists</code>', pluginLoaded ? 'present' : 'MISSING', pluginLoaded);
+
+  var staticLoaded = typeof jq.waitUntilExists === 'function';
+  row('static <code>$.waitUntilExists</code>', staticLoaded ? 'present' : 'absent',
+      cfg.impl === 'v2' ? staticLoaded : null);
+
+  row('MutationObserver', typeof MutationObserver === 'function' ? 'available' : 'MISSING',
+      typeof MutationObserver === 'function');
+
+  if (!pluginLoaded) {
+    if (cfg.impl === 'v2') {
+      verdict('<strong>v2 build not found.</strong> ' +
+        'Expected <code>dist/jquery.waitUntilExists.umd.js</code> — it does not exist yet. ' +
+        'Build it in Phase 3, or switch Implementation back to v1.', 'warn');
+      log('v2 bundle missing (expected until Phase 3)', 'e');
+    } else {
+      verdict('<strong>Plugin failed to load.</strong>', 'bad');
+      log('plugin script did not load', 'e');
+    }
+    return;
+  }
+
+  // --- headline verdict --------------------------------------------------
+  if (cfg.impl === 'v1' && !hasSelector) {
+    verdict(
+      '<strong>Expected failure.</strong> jQuery ' + ver + ' removed <code>.selector</code>, ' +
+      'which v1 depends on. Watching a not-yet-existing element will silently do nothing. ' +
+      'Run the test below to confirm.', 'bad'
+    );
+    log('jQuery ' + ver + ': .selector is undefined — v1 is broken here', 'e');
+  } else if (cfg.impl === 'v1' && hasSelector) {
+    verdict(
+      '<strong>Expected to work.</strong> jQuery ' + ver + ' still provides ' +
+      '<code>.selector</code>, so v1 functions as designed.', 'ok'
+    );
+    log('jQuery ' + ver + ': .selector present — v1 should work');
+  } else {
+    verdict('<strong>v2 loaded</strong> on jQuery ' + ver + '. Run the test below.', 'ok');
+  }
+
+  // --- the actual test ---------------------------------------------------
+  var $watch = document.getElementById('watch');
+  var $inject = document.getElementById('inject');
+
+  $watch.addEventListener('click', function () {
+    fired = false;
+    $watch.disabled = true;
+    $inject.disabled = false;
+
+    var present = jq('#late').length;
+    log('calling $("#late").waitUntilExists(handler) — currently ' + present + ' match(es)');
+
+    if (!present) {
+      log('  note: collection is EMPTY — this is the hard case', 'e');
+    }
+
+    try {
+      jq('#late').waitUntilExists(function () {
+        fired = true;
+        log('HANDLER FIRED for #' + this.id, 's');
+        verdict('<strong>Handler fired.</strong> The plugin detected the injected element.', 'ok');
+      });
+      log('  watcher registered without throwing');
+    } catch (err) {
+      log('  threw: ' + err.message, 'e');
+      verdict('<strong>Threw an exception:</strong> ' + err.message, 'bad');
+    }
+  });
+
+  $inject.addEventListener('click', function () {
+    $inject.disabled = true;
+    log('injecting #late in 1.5s…');
+
+    timer = setTimeout(function () {
+      var el = document.createElement('div');
+      el.id = 'late';
+      el.className = 'target';
+      el.textContent = '#late — injected at ' + new Date().toISOString().substr(11, 8);
+      $stage.appendChild(el);
+      log('#late inserted into the DOM');
+
+      // Give the plugin time to notice: v1 polls at 500ms, v2 is ~immediate.
+      setTimeout(function () {
+        if (!fired) {
+          log('2s elapsed, handler never fired', 'e');
+          verdict(
+            '<strong>Confirmed broken.</strong> The element was inserted, but the handler ' +
+            'never ran. On jQuery ' + ver + ', <code>this.selector</code> is undefined, so ' +
+            'the plugin watched <code>$(undefined)</code> — an empty set — forever.', 'bad'
+          );
+        }
+      }, 2000);
+    }, 1500);
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    if (timer) clearTimeout(timer);
+    fired = false;
+    $stage.innerHTML = '';
+    $log.innerHTML = '';
+    $watch.disabled = false;
+    $inject.disabled = true;
+    try { jq('#late').waitUntilExists('remove'); } catch (e) {}
+    log('reset');
+  });
+
+  log('ready — jQuery ' + ver + ', implementation ' + cfg.impl);
+})();
+</script>
+
+</body>
+</html>
