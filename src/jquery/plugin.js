@@ -1,8 +1,8 @@
-// Phase 3 placeholder.
-import { createObserver } from '../core/observer.js';
+// Phase 4 replaces this with the real jQuery bindings.
+import { watch } from '../core/watcher.js';
 
 export function register($) {
     void $;
-    void createObserver;
+    void watch;
     throw new Error('not implemented');
 }
