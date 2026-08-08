@@ -1,0 +1,57 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+'
+            - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            # Required for npm Trusted Publishing (OIDC) and build provenance.
+            # No NPM_TOKEN secret is stored in this repo.
+            id-token: write
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  cache: npm
+                  registry-url: https://registry.npmjs.org
+
+            - run: npm ci
+            - run: npm run lint
+            - run: npm run test:types
+            - run: npm test
+            - run: npm run build
+
+            # dist/ is committed so the jsDelivr GitHub-tag CDN route works.
+            # Refuse to publish if the tag's dist/ does not match its src/.
+            - name: Verify dist/ is in sync with src/
+              run: |
+                  if ! git diff --exit-code --stat dist/; then
+                    echo "::error::dist/ is stale. Run 'npm run build' and commit before tagging."
+                    exit 1
+                  fi
+
+            - name: Verify tag matches package.json version
+              run: |
+                  TAG="${GITHUB_REF_NAME#v}"
+                  PKG=$(node -p "require('./package.json').version")
+                  if [ "$TAG" != "$PKG" ]; then
+                    echo "::error::Tag $TAG does not match package.json version $PKG"
+                    exit 1
+                  fi
+
+            # Prereleases (2.0.0-rc.1) go to the `next` dist-tag so they do not
+            # become `latest` — unversioned CDN URLs resolve to `latest`.
+            - name: Publish
+              run: |
+                  if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+                    npm publish --provenance --access public --tag next
+                  else
+                    npm publish --provenance --access public
+                  fi
