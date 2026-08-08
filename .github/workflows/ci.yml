@@ -1,0 +1,58 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+            - run: npm ci
+            - run: npm run lint
+            - run: npm run format:check
+
+    test:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                # npm allows only one jquery version in node_modules at a time,
+                # so each leg reinstalls the version under test.
+                jquery: ['3.5.1', '3.7.1', '4.0.0']
+        name: test (jQuery ${{ matrix.jquery }})
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+            - run: npm ci
+            - run: npm install --no-save jquery@${{ matrix.jquery }}
+            - run: npm test
+
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+            - run: npm ci
+            - run: npm run build
+            # dist/ is committed so the jsDelivr GitHub-tag CDN route works.
+            # Fail loudly if it was not rebuilt, rather than serving stale code.
+            - name: Verify dist/ is in sync with src/
+              run: |
+                  if ! git diff --exit-code --stat dist/; then
+                    echo "::error::dist/ is stale. Run 'npm run build' and commit the result."
+                    exit 1
+                  fi

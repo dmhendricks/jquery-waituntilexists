@@ -1,0 +1,13 @@
+dist
+demo
+node_modules
+coverage
+package-lock.json
+
+# Markdown is hand-formatted; Prettier rewrites the jQuery code examples
+# into a different style than the rest of the project uses.
+*.md
+
+# Legacy v1 sources, replaced in Phase 3.
+jquery.waitUntilExists.js
+jquery.waitUntilExists.min.js

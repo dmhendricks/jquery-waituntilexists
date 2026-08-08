@@ -1,23 +1,80 @@
 {
-  "name": "@dmhendricks/jquery-waituntilexists",
-  "description": "jQuery plugin that runs handler function once specified element is inserted into the DOM.",
-  "author": "Daniel M. Hendricks",
-  "version": "1.0.0",
-  "license": "MIT",
-  "main": "jquery.waitUntilExists.min.js",
-  "readme": "README.npm.md",
-  "keywords": [
-    "jquery",
-    "element",
-    "exists",
-    "listener"
-  ],
-  "homepage": "https://github.com/dmhendricks/jquery-waituntilexists",
-  "contributors": [
-    "Brandon Belvin (https://github.com/PizzaBrandon)"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/dmhendricks/jquery-waituntilexists.git"
-  }
+    "name": "@dmhendricks/jquery-waituntilexists",
+    "description": "jQuery plugin that runs handler function once specified element is inserted into the DOM.",
+    "author": "Daniel M. Hendricks",
+    "version": "2.0.0-dev.0",
+    "license": "MIT",
+    "type": "module",
+    "main": "./dist/jquery.waitUntilExists.cjs",
+    "module": "./dist/jquery.waitUntilExists.esm.js",
+    "browser": "./dist/jquery.waitUntilExists.umd.js",
+    "unpkg": "./dist/jquery.waitUntilExists.umd.min.js",
+    "jsdelivr": "./dist/jquery.waitUntilExists.umd.min.js",
+    "types": "./dist/index.d.ts",
+    "readme": "README.npm.md",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/jquery.waitUntilExists.esm.js",
+            "require": "./dist/jquery.waitUntilExists.cjs",
+            "default": "./dist/jquery.waitUntilExists.umd.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": [
+        "./dist/*.umd.js",
+        "./dist/*.umd.min.js",
+        "./dist/*.cjs"
+    ],
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "keywords": [
+        "jquery",
+        "element",
+        "exists",
+        "listener",
+        "mutationobserver",
+        "dom"
+    ],
+    "homepage": "https://github.com/dmhendricks/jquery-waituntilexists",
+    "contributors": [
+        "Brandon Belvin (https://github.com/PizzaBrandon)"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dmhendricks/jquery-waituntilexists.git"
+    },
+    "bugs": {
+        "url": "https://github.com/dmhendricks/jquery-waituntilexists/issues"
+    },
+    "peerDependencies": {
+        "jquery": ">=3.0.0 <5.0.0"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "build": "rollup -c",
+        "dev": "rollup -c -w",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "prepublishOnly": "npm run build && npm test"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@rollup/plugin-terser": "^1.0.0",
+        "eslint": "^10.8.1",
+        "globals": "^17.9.0",
+        "jquery": "^4.0.0",
+        "jsdom": "^30.0.1",
+        "prettier": "^3.9.6",
+        "rollup": "^4.62.4",
+        "vitest": "^4.1.10"
+    }
 }
