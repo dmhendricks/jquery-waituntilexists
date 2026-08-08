@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>waitUntilExists — demo harness</title>
+<title>waitUntilExists demo</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -67,8 +67,10 @@
     display: inline-block; padding: 1px 8px; border-radius: 99px;
     font-size: 11px; font-weight: 600; font-family: var(--mono);
   }
-  .pill.ok  { background: var(--ok-bg);  color: var(--ok); }
-  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .pill.ok   { background: var(--ok-bg);   color: var(--ok); }
+  .pill.bad  { background: var(--bad-bg);  color: var(--bad); }
+  .pill.info { background: transparent;    color: var(--muted); border: 1px solid var(--line); }
+  .note-cell { color: var(--muted); font-size: 12px; }
   #log {
     font-family: var(--mono); font-size: 12px; background: var(--bg);
     border: 1px solid var(--line); border-radius: 8px; padding: 10px;
@@ -103,7 +105,7 @@
 <body>
 <div class="wrap">
 
-  <h1>waitUntilExists — demo harness</h1>
+  <h1>waitUntilExists demo</h1>
   <div class="sub">
     Proves the v1 <code>this.selector</code> breakage on jQuery 3+, and validates the
     v2 rewrite against the same case.
@@ -118,18 +120,21 @@
         <option value="2.2.4">2.2.4 — last 2.x</option>
         <option value="3.0.0">3.0.0 — selector removed here</option>
         <option value="3.5.1">3.5.1</option>
-        <option value="3.7.1" selected>3.7.1 — last 3.x</option>
-        <option value="4.0.0">4.0.0 — current</option>
+        <option value="3.7.1">3.7.1 — last 3.x</option>
+        <option value="4.0.0" selected>4.0.0 — current</option>
       </select>
       <label for="impl">Implementation</label>
       <select id="impl">
-        <option value="v1" selected>v1 — current (setInterval)</option>
-        <option value="v2">v2 — rewrite (MutationObserver)</option>
+        <option value="v1">v1 — legacy (setInterval, jQuery 1&ndash;2 only)</option>
+        <option value="v2" selected>v2 — current (MutationObserver)</option>
       </select>
       <button id="reload" class="primary">Reload</button>
     </div>
     <div class="note">
-      Version and implementation are read from the URL hash, so reloading preserves them.
+      Changing the jQuery version selects the implementation that supports it. Pick an
+      implementation directly to override — <a href="#jq=3.7.1&amp;impl=v1">v1 on jQuery
+      3.7.1</a> is the original bug this rewrite fixes. Both are stored in the URL hash,
+      so links and reloads are stable.
     </div>
   </div>
 
@@ -139,7 +144,7 @@
     <h2>Diagnostics</h2>
     <table>
       <thead>
-        <tr><th>Check</th><th>Value</th><th>Status</th></tr>
+        <tr><th>Check</th><th>Value</th><th>Status</th><th>Note</th></tr>
       </thead>
       <tbody id="diag"></tbody>
     </table>
@@ -172,10 +177,10 @@
 <script>
 // ---------------------------------------------------------------------------
 // Harness bootstrap. Reads config from the hash, loads jQuery + the chosen
-// implementation synchronously via document.write so ordering is guaranteed.
+// implementation, then starts the demo once both are ready.
 // ---------------------------------------------------------------------------
 (function () {
-  var cfg = { jq: '3.7.1', impl: 'v1' };
+  var cfg = { jq: '4.0.0', impl: 'v2' };
   var hash = location.hash.replace(/^#/, '');
   if (hash) {
     hash.split('&').forEach(function (kv) {
@@ -186,20 +191,45 @@
   }
   window.__CFG__ = cfg;
 
-  document.write(
-    '<script src="https://code.jquery.com/jquery-' + cfg.jq + '.min.js"><\/script>'
-  );
-  if (cfg.impl === 'v1') {
+  var pluginSrc = cfg.impl === 'v1'
     // v1 comes from the published @1 CDN rather than a local copy — it is
     // immutable, it is what real v1 users actually load, and it keeps the
     // superseded source out of this repo.
-    document.write(
-      '<script src="https://cdn.jsdelivr.net/npm/@dmhendricks/jquery-waituntilexists@1' +
-      '/jquery.waitUntilExists.min.js"><\/script>'
-    );
-  } else {
+    ? 'https://cdn.jsdelivr.net/npm/@dmhendricks/jquery-waituntilexists@1' +
+      '/jquery.waitUntilExists.min.js'
     // Built by `npm run build`. Handled gracefully below if missing.
-    document.write('<script src="../dist/jquery.waitUntilExists.umd.js"><\/script>');
+    : '../dist/jquery.waitUntilExists.umd.js';
+
+  // Load sequentially without document.write, which Chrome warns about (and may
+  // refuse outright on slow connections) for parser-blocking cross-origin
+  // scripts. Setting `async = false` on a dynamically inserted script preserves
+  // execution order, so the plugin still runs after jQuery.
+  function loadScript(src, onDone, onError) {
+    var el = document.createElement('script');
+    el.src = src;
+    el.async = false;
+    el.onload = onDone;
+    el.onerror = function () {
+      (onError || onDone)();
+    };
+    document.head.appendChild(el);
+  }
+
+  loadScript(
+    'https://code.jquery.com/jquery-' + cfg.jq + '.min.js',
+    function () {
+      loadScript(pluginSrc, start, start);
+    },
+    // jQuery itself failed — start anyway so the diagnostics can report it.
+    start
+  );
+
+  // The scripts may finish before or after the main block below has parsed, so
+  // handle both orderings: run it if it is ready, otherwise leave a flag for it
+  // to run itself.
+  function start() {
+    if (window.__START__) window.__START__();
+    else window.__SCRIPTS_READY__ = true;
   }
 })();
 </script>
@@ -208,8 +238,11 @@
 // ---------------------------------------------------------------------------
 // Demo logic. Deliberately written in plain DOM APIs, not jQuery, so the
 // harness itself keeps working even when the plugin under test is broken.
+//
+// Runs once the bootstrap above has finished loading jQuery and the plugin,
+// rather than immediately, since those are now loaded asynchronously.
 // ---------------------------------------------------------------------------
-(function () {
+window.__START__ = function () {
   var cfg = window.__CFG__;
   var $log = document.getElementById('log');
   var $diag = document.getElementById('diag');
@@ -228,12 +261,22 @@
     $log.scrollTop = $log.scrollHeight;
   }
 
-  function row(label, value, ok) {
+  // `state` is 'ok' | 'bad' | 'info' | null.
+  //
+  // 'info' matters: some rows report a fact about the environment that is
+  // neither a pass nor a failure. Marking those FAIL is actively misleading —
+  // e.g. jQuery 4 has no `.selector`, which is expected and irrelevant to v2.
+  function row(label, value, state, note) {
+    var labels = { ok: 'OK', bad: 'FAIL', info: 'INFO' };
     var tr = document.createElement('tr');
-    var status = ok === null
+    var status = !state
       ? '<span class="pill">n/a</span>'
-      : '<span class="pill ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'OK' : 'FAIL') + '</span>';
-    tr.innerHTML = '<td>' + label + '</td><td class="v">' + value + '</td><td>' + status + '</td>';
+      : '<span class="pill ' + state + '">' + labels[state] + '</span>';
+    tr.innerHTML =
+      '<td>' + label + '</td>' +
+      '<td class="v">' + value + '</td>' +
+      '<td>' + status + '</td>' +
+      '<td class="note-cell">' + (note || '') + '</td>';
     $diag.appendChild(tr);
   }
 
@@ -251,9 +294,43 @@
                     '&impl=' + encodeURIComponent(document.getElementById('impl').value);
     location.reload();
   }
+
+  // v2 needs jQuery 3+; v1 only works below it. Changing the jQuery version to
+  // one the selected implementation cannot support switches to the one that
+  // works, so the demo lands on something meaningful rather than on a warning
+  // about its own configuration.
+  //
+  // Only on jQuery-version change — picking an implementation directly is a
+  // deliberate choice (seeing v1 fail on jQuery 3 is the point) and is kept.
+  function onVersionChange() {
+    var $impl = document.getElementById('impl');
+    var nextMajor = parseInt(document.getElementById('jqv').value, 10);
+    var supported = nextMajor >= 3 ? 'v2' : 'v1';
+
+    if ($impl.value !== supported) {
+      var previous = $impl.value;
+      $impl.value = supported;
+      try {
+        sessionStorage.setItem(
+          'waitUntilExists.autoswitch',
+          previous + ' → ' + supported + ' (jQuery ' + nextMajor + '.x)'
+        );
+      } catch (e) {
+        /* private mode — the switch still happens, just unannounced */
+      }
+    }
+    apply();
+  }
+
   document.getElementById('reload').addEventListener('click', apply);
-  document.getElementById('jqv').addEventListener('change', apply);
+  document.getElementById('jqv').addEventListener('change', onVersionChange);
   document.getElementById('impl').addEventListener('change', apply);
+
+  // Links that set the hash (e.g. the v1-on-jQuery-3 shortcut above) change it
+  // without navigating, so reload to actually load that combination.
+  window.addEventListener('hashchange', function () {
+    location.reload();
+  });
 
   // --- diagnostics -------------------------------------------------------
   var jq = window.jQuery;
@@ -266,24 +343,42 @@
     return;
   }
 
+  var isV2 = cfg.impl === 'v2';
   var ver = jq.fn.jquery;
   var major = parseInt(ver, 10);
-  row('jQuery version', ver, null);
+  row('jQuery version', ver, 'info', isV2
+    ? (major >= 3 ? 'supported by v2' : 'v2 requires jQuery 3+')
+    : (major < 3 ? 'v1 supports this' : 'v1 is broken here'));
 
   // Does this jQuery still expose .selector? Removed in 3.0.
+  //
+  // This is a fact about the jQuery version, not a pass or fail. It only
+  // decides anything for v1, which reads it. v2 takes the selector as an
+  // argument, so its absence is irrelevant.
   var probe = jq('#nonexistent-probe-' + Date.now());
   var hasSelector = typeof probe.selector === 'string';
-  row('<code>.selector</code> property', hasSelector ? '"' + probe.selector + '"' : 'undefined', hasSelector);
+  row(
+    '<code>.selector</code> property',
+    hasSelector ? '"' + probe.selector + '"' : 'undefined',
+    isV2 ? 'info' : (hasSelector ? 'ok' : 'bad'),
+    isV2
+      ? 'not used by v2 — selector is passed as an argument'
+      : (hasSelector ? 'v1 depends on this' : 'removed in jQuery 3 — v1 cannot work')
+  );
 
   var pluginLoaded = typeof jq.fn.waitUntilExists === 'function';
-  row('plugin <code>$.fn.waitUntilExists</code>', pluginLoaded ? 'present' : 'MISSING', pluginLoaded);
+  row('plugin <code>$.fn.waitUntilExists</code>', pluginLoaded ? 'present' : 'MISSING',
+      pluginLoaded ? 'ok' : 'bad');
 
   var staticLoaded = typeof jq.waitUntilExists === 'function';
   row('static <code>$.waitUntilExists</code>', staticLoaded ? 'present' : 'absent',
-      cfg.impl === 'v2' ? staticLoaded : null);
+      isV2 ? (staticLoaded ? 'ok' : 'bad') : 'info',
+      isV2 ? 'the v2 primary API' : 'v1 has no static form');
 
-  row('MutationObserver', typeof MutationObserver === 'function' ? 'available' : 'MISSING',
-      typeof MutationObserver === 'function');
+  var hasMO = typeof MutationObserver === 'function';
+  row('MutationObserver', hasMO ? 'available' : 'MISSING',
+      isV2 ? (hasMO ? 'ok' : 'bad') : 'info',
+      isV2 ? 'how v2 detects insertions' : 'v1 polls every 500ms instead');
 
   if (!pluginLoaded) {
     if (cfg.impl === 'v2') {
@@ -312,8 +407,19 @@
       '<code>.selector</code>, so v1 functions as designed.', 'ok'
     );
     log('jQuery ' + ver + ': .selector present — v1 should work');
+  } else if (major < 3) {
+    verdict(
+      '<strong>Unsupported combination.</strong> v2 requires jQuery 3.0+, but ' + ver +
+      ' is loaded. Use v1 on this version, or move to jQuery 3+.', 'warn'
+    );
+    log('jQuery ' + ver + ' is below v2’s minimum of 3.0', 'e');
   } else {
-    verdict('<strong>v2 loaded</strong> on jQuery ' + ver + '. Run the test below.', 'ok');
+    verdict(
+      '<strong>v2 on jQuery ' + ver + '.</strong> This is the supported combination — ' +
+      'the selector is passed as an argument, so <code>.selector</code> is irrelevant. ' +
+      'Run the test below.', 'ok'
+    );
+    log('jQuery ' + ver + ' + v2 — supported');
   }
 
   // --- the actual test ---------------------------------------------------
@@ -399,7 +505,22 @@
   });
 
   log('ready — jQuery ' + ver + ', implementation ' + cfg.impl);
-})();
+
+  // Report an auto-switch from the previous page load, so the implementation
+  // dropdown changing on its own is explained rather than mysterious.
+  try {
+    var switched = sessionStorage.getItem('waitUntilExists.autoswitch');
+    if (switched) {
+      sessionStorage.removeItem('waitUntilExists.autoswitch');
+      log('auto-switched implementation ' + switched, 's');
+    }
+  } catch (e) {
+    /* sessionStorage unavailable — nothing to report */
+  }
+};
+
+// If the scripts finished loading before this block parsed, run now.
+if (window.__SCRIPTS_READY__) window.__START__();
 </script>
 
 </body>

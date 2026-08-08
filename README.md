@@ -80,7 +80,7 @@ try {
 }
 ```
 
-## Using jQuery 1.x or 2.x
+## ⚠️ Using with jQuery 1.x or 2.x
 
 v2 requires jQuery 3.0+. On older jQuery, pin to v1:
 
