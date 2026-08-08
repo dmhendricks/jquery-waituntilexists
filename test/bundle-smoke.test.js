@@ -78,3 +78,41 @@ describe('built bundle smoke test', () => {
         expect(code).toContain('@license MIT');
     });
 });
+
+describe('auto-registration', () => {
+    it('registers against a global jQuery when one exists', () => {
+        const code = fs.readFileSync(dist('jquery.waitUntilExists.umd.js'), 'utf8');
+        const fakeJQuery = Object.assign(function () {}, { fn: {} });
+        const fakeGlobal = { jQuery: fakeJQuery };
+
+        new Function('globalThis', 'exports', 'module', 'define', code)(
+            fakeGlobal,
+            undefined,
+            undefined,
+            undefined,
+        );
+
+        expect(typeof fakeJQuery.waitUntilExists).toBe('function');
+        expect(typeof fakeJQuery.fn.waitUntilExists).toBe('function');
+    });
+
+    it('warns rather than failing silently when no global jQuery exists', () => {
+        // Bundlers frequently keep jQuery module-scoped and never set
+        // window.jQuery — webpack does this in production. Auto-registration
+        // cannot work there, and silence would be the worst outcome.
+        const code = fs.readFileSync(dist('jquery.waitUntilExists.umd.js'), 'utf8');
+        const warnings = [];
+        const fakeGlobal = { console: { warn: (m) => warnings.push(m) } };
+
+        new Function('globalThis', 'console', 'exports', 'module', 'define', code)(
+            fakeGlobal,
+            fakeGlobal.console,
+            undefined,
+            undefined,
+            undefined,
+        );
+
+        expect(warnings.join('\n')).toContain('no global jQuery found');
+        expect(warnings.join('\n')).toContain('register($)');
+    });
+});

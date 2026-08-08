@@ -21,11 +21,7 @@
         },
         "./package.json": "./package.json"
     },
-    "sideEffects": [
-        "./dist/*.umd.js",
-        "./dist/*.umd.min.js",
-        "./dist/*.cjs"
-    ],
+    "sideEffects": true,
     "files": [
         "dist",
         "README.md",
@@ -79,5 +75,8 @@
         "rollup": "^4.62.4",
         "typescript": "^7.0.2",
         "vitest": "^4.1.10"
+    },
+    "allowScripts": {
+        "fsevents": true
     }
 }
