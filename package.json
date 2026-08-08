@@ -2,7 +2,7 @@
     "name": "@dmhendricks/jquery-waituntilexists",
     "description": "jQuery plugin that runs handler function once specified element is inserted into the DOM.",
     "author": "Daniel M. Hendricks",
-    "version": "2.0.0-rc.0",
+    "version": "2.0.0",
     "license": "MIT",
     "type": "module",
     "main": "./dist/jquery.waitUntilExists.cjs",

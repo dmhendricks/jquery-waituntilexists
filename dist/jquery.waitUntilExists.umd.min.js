@@ -1,5 +1,5 @@
 /*!
- * jquery.waitUntilExists.js v2.0.0-rc.0
+ * jquery.waitUntilExists.js v2.0.0
  * https://github.com/dmhendricks/jquery-waituntilexists
  * @license MIT
  */

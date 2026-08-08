@@ -5,6 +5,14 @@ on:
         tags:
             - 'v[0-9]+.[0-9]+.[0-9]+'
             - 'v[0-9]+.[0-9]+.[0-9]+-*'
+    # Manual dry run. Exercises OIDC auth, every guard, and packing —
+    # without publishing. Run this before the first real release.
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: 'Validate without publishing'
+                type: boolean
+                default: true
 
 jobs:
     publish:
@@ -37,7 +45,9 @@ jobs:
                     exit 1
                   fi
 
+            # Skipped on manual runs, where the ref is a branch rather than a tag.
             - name: Verify tag matches package.json version
+              if: github.event_name == 'push'
               run: |
                   TAG="${GITHUB_REF_NAME#v}"
                   PKG=$(node -p "require('./package.json').version")
@@ -46,12 +56,29 @@ jobs:
                     exit 1
                   fi
 
+            - name: Verify the version is not already published
+              run: |
+                  PKG=$(node -p "require('./package.json').version")
+                  NAME=$(node -p "require('./package.json').name")
+                  if npm view "$NAME@$PKG" version >/dev/null 2>&1; then
+                    echo "::error::$NAME@$PKG is already published. Versions cannot be reused."
+                    exit 1
+                  fi
+                  echo "$NAME@$PKG is unpublished — OK to release."
+
             # Prereleases (2.0.0-rc.1) go to the `next` dist-tag so they do not
             # become `latest` — unversioned CDN URLs resolve to `latest`.
             - name: Publish
               run: |
+                  ARGS="--provenance --access public"
                   if [[ "$GITHUB_REF_NAME" == *-* ]]; then
-                    npm publish --provenance --access public --tag next
+                    ARGS="$ARGS --tag next"
+                  fi
+
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "Dry run — validating without publishing."
+                    npm publish $ARGS --dry-run
+                    echo "Dry run complete. Nothing was published."
                   else
-                    npm publish --provenance --access public
+                    npm publish $ARGS
                   fi
