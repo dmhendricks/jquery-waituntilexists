@@ -105,8 +105,8 @@
 
   <h1>waitUntilExists — demo harness</h1>
   <div class="sub">
-    Local test page (gitignored). Proves the v1 <code>this.selector</code> breakage and,
-    later, validates the v2 rewrite.
+    Proves the v1 <code>this.selector</code> breakage on jQuery 3+, and validates the
+    v2 rewrite against the same case.
   </div>
 
   <div class="panel">
@@ -190,9 +190,15 @@
     '<script src="https://code.jquery.com/jquery-' + cfg.jq + '.min.js"><\/script>'
   );
   if (cfg.impl === 'v1') {
-    document.write('<script src="../jquery.waitUntilExists.js"><\/script>');
+    // v1 comes from the published @1 CDN rather than a local copy — it is
+    // immutable, it is what real v1 users actually load, and it keeps the
+    // superseded source out of this repo.
+    document.write(
+      '<script src="https://cdn.jsdelivr.net/npm/@dmhendricks/jquery-waituntilexists@1' +
+      '/jquery.waitUntilExists.min.js"><\/script>'
+    );
   } else {
-    // Phase 3+ will emit this. Absent for now — handled gracefully below.
+    // Built by `npm run build`. Handled gracefully below if missing.
     document.write('<script src="../dist/jquery.waitUntilExists.umd.js"><\/script>');
   }
 })();
@@ -211,6 +217,7 @@
   var $stage = document.getElementById('stage');
   var timer = null;
   var fired = false;
+  var activeWatcher = null;
 
   function log(msg, cls) {
     var t = new Date().toISOString().substr(11, 12);
@@ -281,9 +288,9 @@
   if (!pluginLoaded) {
     if (cfg.impl === 'v2') {
       verdict('<strong>v2 build not found.</strong> ' +
-        'Expected <code>dist/jquery.waitUntilExists.umd.js</code> — it does not exist yet. ' +
-        'Build it in Phase 3, or switch Implementation back to v1.', 'warn');
-      log('v2 bundle missing (expected until Phase 3)', 'e');
+        'Expected <code>dist/jquery.waitUntilExists.umd.js</code>. ' +
+        'Run <code>npm run build</code>, or switch Implementation back to v1.', 'warn');
+      log('v2 bundle missing — run: npm run build', 'e');
     } else {
       verdict('<strong>Plugin failed to load.</strong>', 'bad');
       log('plugin script did not load', 'e');
@@ -319,19 +326,30 @@
     $inject.disabled = false;
 
     var present = jq('#late').length;
-    log('calling $("#late").waitUntilExists(handler) — currently ' + present + ' match(es)');
 
-    if (!present) {
-      log('  note: collection is EMPTY — this is the hard case', 'e');
+    function onFound() {
+      fired = true;
+      log('HANDLER FIRED for #' + this.id, 's');
+      verdict('<strong>Handler fired.</strong> The plugin detected the injected element.', 'ok');
     }
 
     try {
-      jq('#late').waitUntilExists(function () {
-        fired = true;
-        log('HANDLER FIRED for #' + this.id, 's');
-        verdict('<strong>Handler fired.</strong> The plugin detected the injected element.', 'ok');
-      });
-      log('  watcher registered without throwing');
+      if (cfg.impl === 'v2') {
+        // v2: the selector is passed as an argument, so it survives even when
+        // nothing matches yet. This is the whole fix.
+        log('calling $.waitUntilExists("#late", handler) — currently ' + present + ' match(es)');
+        if (!present) log('  nothing matches yet — the case v1 cannot handle');
+
+        activeWatcher = jq.waitUntilExists('#late', onFound);
+        log('  watcher registered (static form)');
+      } else {
+        // v1: reads this.selector, which jQuery 3 removed.
+        log('calling $("#late").waitUntilExists(handler) — currently ' + present + ' match(es)');
+        if (!present) log('  note: collection is EMPTY — this is the hard case', 'e');
+
+        jq('#late').waitUntilExists(onFound);
+        log('  watcher registered without throwing');
+      }
     } catch (err) {
       log('  threw: ' + err.message, 'e');
       verdict('<strong>Threw an exception:</strong> ' + err.message, 'bad');
@@ -371,7 +389,12 @@
     $log.innerHTML = '';
     $watch.disabled = false;
     $inject.disabled = true;
-    try { jq('#late').waitUntilExists('remove'); } catch (e) {}
+    try {
+      if (activeWatcher && activeWatcher.stop) activeWatcher.stop();
+      else if (jq.waitUntilExists && jq.waitUntilExists.stop) jq.waitUntilExists.stop('#late');
+      else jq('#late').waitUntilExists('remove');
+    } catch (e) {}
+    activeWatcher = null;
     log('reset');
   });
 

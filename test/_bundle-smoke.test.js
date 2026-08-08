@@ -40,15 +40,37 @@ describe('built bundle smoke test', () => {
         expect(typeof result.waitUntilExists.register).toBe('function');
     });
 
-    it('no bundle references process.env (would throw in a browser)', () => {
+    it('no bundle references process.env in executable code', () => {
+        // Strip comments before checking: the source explains *why* it avoids
+        // process.env, and that prose survives into unminified bundles. Only a
+        // real reference would throw "process is not defined" in a browser.
+        const stripComments = (code) =>
+            code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
         for (const file of [
             'jquery.waitUntilExists.esm.js',
             'jquery.waitUntilExists.cjs',
             'jquery.waitUntilExists.umd.js',
             'jquery.waitUntilExists.umd.min.js',
         ]) {
-            expect(fs.readFileSync(dist(file), 'utf8')).not.toContain('process.env');
+            const code = stripComments(fs.readFileSync(dist(file), 'utf8'));
+            expect(code, `${file} references process.env`).not.toContain('process.env');
         }
+    });
+
+    it('bundles evaluate without a `process` global', () => {
+        // The real assertion behind the check above: loading the UMD build in an
+        // environment with no `process` (i.e. a browser) must not throw.
+        const code = fs.readFileSync(dist('jquery.waitUntilExists.umd.js'), 'utf8');
+        const run = new Function(
+            'globalThis',
+            'process',
+            'exports',
+            'module',
+            'define',
+            `${code}; return globalThis;`,
+        );
+        expect(() => run({}, undefined, undefined, undefined, undefined)).not.toThrow();
     });
 
     it('minified build keeps the license banner', () => {

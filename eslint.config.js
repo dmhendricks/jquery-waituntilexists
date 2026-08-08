@@ -45,14 +45,6 @@ export default [
         },
     },
     {
-        ignores: [
-            'dist/**',
-            'demo/**',
-            'node_modules/**',
-            'coverage/**',
-            // Legacy v1 sources, replaced in Phase 3. Not worth linting.
-            'jquery.waitUntilExists.js',
-            'jquery.waitUntilExists.min.js',
-        ],
+        ignores: ['dist/**', 'demo/**', 'node_modules/**', 'coverage/**'],
     },
 ];
