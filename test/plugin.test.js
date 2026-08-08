@@ -229,6 +229,82 @@ describe(`jQuery bindings (jQuery ${jQuery.fn.jquery})`, () => {
         });
     });
 
+    describe('container scoping vs jQuery 4 selector-native changes', () => {
+        // jQuery 4 changed how the native selector engine handles context:
+        // $div.find('> *') no longer throws, and $div.find('div span') in a
+        // parent context now correctly returns 0. `container` scoping uses
+        // querySelectorAll directly rather than jQuery's engine, so it should
+        // behave identically across the matrix — verify rather than assume.
+
+        it('scopes to the container on every jQuery version', async () => {
+            const host = append('<div id="ctx-host"></div>');
+            append('<div id="ctx-outside" class="ctx"></div>');
+
+            const handler = vi.fn();
+            $.waitUntilExists('.ctx', handler, { container: host, once: false });
+
+            await tick();
+            expect(handler).not.toHaveBeenCalled();
+
+            const inside = append('<div class="ctx"></div>', host);
+            await tick();
+
+            expect(handler).toHaveBeenCalledTimes(1);
+            expect(handler.mock.calls[0][0]).toBe(inside);
+
+            $.waitUntilExists.stop('.ctx');
+        });
+
+        it('handles a descendant selector inside a container', async () => {
+            // The jQuery 4 change that bit `.find('div span')` in a parent
+            // context. querySelectorAll matches descendants of the container,
+            // so `span` inside `div` inside the container must be found.
+            const host = append('<div id="desc-host"></div>');
+            const handle = $.waitUntilExists('div span', { container: host });
+
+            const mid = document.createElement('div');
+            const span = document.createElement('span');
+            mid.appendChild(span);
+            host.appendChild(mid);
+
+            const $el = await handle;
+            expect($el[0]).toBe(span);
+        });
+
+        it('supports a child-combinator selector without throwing', async () => {
+            // jQuery 4 made `.find('> *')` stop throwing. The `:scope` form is
+            // the standards-compliant equivalent for querySelectorAll.
+            const host = append('<div id="child-host"></div>');
+            const handle = $.waitUntilExists(':scope > .direct', { container: host });
+
+            const direct = document.createElement('div');
+            direct.className = 'direct';
+            host.appendChild(direct);
+
+            const $el = await handle;
+            expect($el[0]).toBe(direct);
+        });
+
+        it('does not match a grandchild for a child-combinator selector', async () => {
+            const host = append('<div id="gc-host"></div>');
+            const handler = vi.fn();
+            $.waitUntilExists(':scope > .only-direct', handler, {
+                container: host,
+                once: false,
+            });
+
+            const mid = document.createElement('div');
+            const deep = document.createElement('div');
+            deep.className = 'only-direct';
+            mid.appendChild(deep);
+            host.appendChild(mid);
+            await tick();
+
+            expect(handler).not.toHaveBeenCalled();
+            $.waitUntilExists.stop(':scope > .only-direct');
+        });
+    });
+
     describe('regression: the v1 jQuery 3 breakage', () => {
         it('static form works where v1 silently did nothing', async () => {
             // v1 read this.selector, which jQuery 3 removed, so watching for a

@@ -127,6 +127,71 @@ describe('core: watch()', () => {
         });
     });
 
+    describe('concurrent watchers on the same selector', () => {
+        it('notifies every watcher watching the same selector', async () => {
+            const a = vi.fn();
+            const b = vi.fn();
+            const c = vi.fn();
+
+            watch('.concurrent', a);
+            watch('.concurrent', b);
+            watch('.concurrent', c);
+
+            append('<div class="concurrent"></div>');
+            await tick();
+
+            expect(a).toHaveBeenCalledTimes(1);
+            expect(b).toHaveBeenCalledTimes(1);
+            expect(c).toHaveBeenCalledTimes(1);
+        });
+
+        it('gives each watcher its own seen-set', async () => {
+            // A pre-existing element must notify a watcher created afterwards,
+            // even though an earlier watcher already saw it. Markers are
+            // per-watcher, unlike v1's shared .data() flag.
+            const first = vi.fn();
+            const w1 = watch('.own-set', first, { once: false });
+
+            append('<div class="own-set"></div>');
+            await tick();
+            expect(first).toHaveBeenCalledTimes(1);
+
+            const second = vi.fn();
+            const w2 = watch('.own-set', second, { once: false });
+            expect(second).toHaveBeenCalledTimes(1);
+
+            w1.stop();
+            w2.stop();
+        });
+
+        it('stopping one watcher leaves the others running', async () => {
+            const kept = vi.fn();
+            const dropped = vi.fn();
+
+            const keep = watch('.independent', kept, { once: false });
+            const drop = watch('.independent', dropped, { once: false });
+
+            drop.stop();
+            append('<div class="independent"></div>');
+            await tick();
+
+            expect(kept).toHaveBeenCalledTimes(1);
+            expect(dropped).not.toHaveBeenCalled();
+
+            keep.stop();
+        });
+
+        it('resolves every promise for the same selector', async () => {
+            const p1 = watch('.same-promise').promise;
+            const p2 = watch('.same-promise').promise;
+
+            const el = append('<div class="same-promise"></div>');
+
+            await expect(p1).resolves.toBe(el);
+            await expect(p2).resolves.toBe(el);
+        });
+    });
+
     describe('attributes', () => {
         it('matches an element that only becomes matching via attribute change', async () => {
             const el = append('<div id="attr"></div>');

@@ -1,18 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import $ from 'jquery';
 
-// Spike: jQuery 4 moved the no-DOM Node entry point to jquery/factory.
-// Confirm what actually happens under jsdom with each import style,
-// so test/setup.js in Phase 5 uses the correct one.
+// Pins down how jQuery behaves differently across the supported matrix, so
+// changes in that behaviour surface here rather than as confusing failures
+// elsewhere.
 //
-// The factory subpath does NOT exist in jQuery 3.x, and a static import
-// of it fails at transform time (not runtime), so it cannot be guarded
-// by a plain `it.skipIf`. The specifier is built at runtime to defer
-// resolution past Vite's static analysis.
+// Two non-obvious facts are captured below:
+//
+//   1. jQuery 4 moved the DOM-less Node entry point to `jquery/factory`, and
+//      exports the factory as a NAMED export. The intuitive
+//      `import factory from 'jquery/factory'` yields an object, not a
+//      callable, and fails at runtime.
+//
+//   2. That subpath does not exist in jQuery 3.x at all, and a *static*
+//      import of it fails at Vite transform time — before any runtime guard
+//      can run. So `it.skipIf` alone is not enough; the specifier is
+//      assembled at runtime to defer resolution past static analysis.
 const major = parseInt($.fn.jquery, 10);
 const isJQuery4Plus = major >= 4;
 
-describe('spike: jQuery 4 import path under jsdom', () => {
+describe(`jQuery version compatibility (jQuery ${$.fn.jquery})`, () => {
     it('plain "jquery" import attaches to the ambient jsdom window/document', () => {
         expect(typeof $).toBe('function');
         expect(typeof $.fn.jquery).toBe('string');
